@@ -9,8 +9,7 @@ from torch.cuda.amp import autocast, GradScaler
 import torch._dynamo
 torch._dynamo.config.suppress_errors = True
 
-from Model.GeneratorV2 import Generator
-from Model.Discriminator import Discriminator
+from model.modelgpu import Generator , Discriminator
 
 # Minimal placeholders - replace with your actual implementations
 class SRDataset(torch.utils.data.Dataset):
@@ -47,7 +46,7 @@ def main():
 from torch.cuda.amp import autocast, GradScaler
 
 device = torch.device("cuda")
-data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-DJ\\datasets\\CT-dataset"
+data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-DJ\\dataset"
 transform = transforms.ToTensor()
 dataset = SRDataset(data_path, transform)
 
