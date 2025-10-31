@@ -12,7 +12,7 @@ from tqdm import tqdm
 import torch._dynamo
 torch._dynamo.config.suppress_errors = True
 
-from model.modelgpu import Generator, Discriminator
+from model.model_w import Generator, Discriminator
 
 
 class SRDataset(torch.utils.data.Dataset):
@@ -40,7 +40,7 @@ class SRDataset(torch.utils.data.Dataset):
 
 
 class VGGFeatureExtractor(nn.Module):
-    def __init__(self, layer_index=35):
+    def __init__(self, layer_index=9):
         super().__init__()
         from torchvision.models import vgg19, VGG19_Weights
         self.features = vgg19(weights=VGG19_Weights.DEFAULT).features[:layer_index+1].eval()
@@ -53,8 +53,9 @@ class VGGFeatureExtractor(nn.Module):
 
 def main():
     
-    run_name = "srgan_run1"   
-    
+    run_name = "srgan_model_W_500epoch4"   
+    lr_G = 1e-4
+    lr_D = 1e-5
     device = torch.device("cuda")
     data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset"
 
@@ -86,19 +87,19 @@ def main():
 
     generator = Generator().to(device)
     discriminator = Discriminator().to(device)
-    vgg = VGGFeatureExtractor(layer_index=22).to(device)
+    vgg = VGGFeatureExtractor(layer_index=9).to(device)
     vgg.eval()
 
     criterion_gan = nn.BCEWithLogitsLoss()
     criterion_content = nn.MSELoss()
 
-    opt_G = optim.Adam(generator.parameters(), lr=1e-3)
-    opt_D = optim.Adam(discriminator.parameters(), lr=1e-4)
+    opt_G = optim.Adam(generator.parameters(), lr=lr_G)
+    opt_D = optim.Adam(discriminator.parameters(), lr=lr_D)
 
     scaler_G = GradScaler()
     scaler_D = GradScaler()
 
-    total_epochs = 100
+    total_epochs = 500
 
     for epoch in tqdm(range(total_epochs), desc="Epochs", unit="epoch"):
         total_G_loss, total_D_loss, total_content_loss, total_gan_loss = 0, 0, 0, 0
@@ -128,7 +129,7 @@ def main():
                 gen_hr_rgb = gen_hr.expand(-1, 3, -1, -1)
                 hr_rgb = hr.expand(-1, 3, -1, -1)
                 loss_content = criterion_content(vgg(gen_hr_rgb), vgg(hr_rgb))
-                loss_G = loss_content + 1e-3 * loss_gan
+                loss_G = loss_content + 1e-2 * loss_gan
 
             scaler_G.scale(loss_G).backward()
             scaler_G.step(opt_G)
