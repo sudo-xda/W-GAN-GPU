@@ -57,7 +57,7 @@ def main():
     lr_G = 1e-4
     lr_D = 1e-5
     device = torch.device("cuda")
-    data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset"
+    data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset_CT"
 
     # Parent run folder
     run_dir = os.path.join("runs", run_name)
@@ -99,7 +99,7 @@ def main():
     scaler_G = GradScaler()
     scaler_D = GradScaler()
 
-    total_epochs = 500
+    total_epochs = 10
 
     for epoch in tqdm(range(total_epochs), desc="Epochs", unit="epoch"):
         total_G_loss, total_D_loss, total_content_loss, total_gan_loss = 0, 0, 0, 0

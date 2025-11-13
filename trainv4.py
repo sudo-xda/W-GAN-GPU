@@ -13,7 +13,9 @@ from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMe
 import torch._dynamo
 torch._dynamo.config.suppress_errors = True
 
-from model.modelgpu import Generator, Discriminator
+#from model.model_w import Generator, Discriminator
+#from model.new_w_model import Generator, Discriminator
+from model.srgan_model import Generator, Discriminator
 
 
 class SRDataset(torch.utils.data.Dataset):
@@ -41,7 +43,7 @@ class SRDataset(torch.utils.data.Dataset):
 
 
 class VGGFeatureExtractor(nn.Module):
-    def __init__(self, layer_index=35):
+    def __init__(self, layer_index=22):
         super().__init__()
         from torchvision.models import vgg19, VGG19_Weights
         self.features = vgg19(weights=VGG19_Weights.DEFAULT).features[:layer_index+1].eval()
@@ -54,9 +56,9 @@ class VGGFeatureExtractor(nn.Module):
 
 def main():
     
-    run_name = "srgan_run1"   
+    run_name = "srgan_run-psnr-CT_100epoch_new w3_srgan model"   
     device = torch.device("cuda")
-    data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset"
+    data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset\\CT-SMALL-512"
 
     # Folders
     run_dir = os.path.join("runs", run_name)
@@ -74,7 +76,7 @@ def main():
 
     transform = transforms.ToTensor()
     dataset = SRDataset(data_path, transform)
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=True, pin_memory=True)
+    dataloader = DataLoader(dataset, batch_size=4, shuffle=True, pin_memory=True)
 
     generator = Generator().to(device)
     discriminator = Discriminator().to(device)
@@ -82,16 +84,19 @@ def main():
 
     criterion_gan = nn.BCEWithLogitsLoss()
     criterion_content = nn.MSELoss()
+    #criterion_content = nn.L1Loss()
 
-    opt_G = optim.Adam(generator.parameters(), lr=1e-3)
-    opt_D = optim.Adam(discriminator.parameters(), lr=1e-4)
+    opt_G = optim.Adam(generator.parameters(), lr=1e-4)
+    opt_D = optim.Adam(discriminator.parameters(), lr=1e-5)
 
-    scaler_G = GradScaler()
-    scaler_D = GradScaler()
+    # Updated AMP scaler syntax
+    scaler_G = torch.amp.GradScaler("cuda")
+    scaler_D = torch.amp.GradScaler("cuda")
 
-    # Metrics
-    psnr_metric = PeakSignalNoiseRatio().to(device)
-    ssim_metric = StructuralSimilarityIndexMeasure().to(device)
+    # Metrics (specify data_range since images are normalized 0–1)
+    psnr_metric = PeakSignalNoiseRatio(data_range=1.0).to(device)
+    ssim_metric = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+
 
     total_epochs = 100
 
@@ -114,8 +119,9 @@ def main():
 
             # Train Generator
             opt_G.zero_grad(set_to_none=True)
-            with autocast():
+            with torch.amp.autocast("cuda"):
                 gen_hr = generator(lr)
+                gen_hr = torch.clamp(gen_hr, 0.0, 1.0)
                 pred_fake = discriminator(gen_hr)
                 loss_gan = criterion_gan(pred_fake, valid)
 
@@ -125,6 +131,7 @@ def main():
                 loss_G = loss_content + 1e-3 * loss_gan
 
             scaler_G.scale(loss_G).backward()
+            torch.nn.utils.clip_grad_norm_(generator.parameters(), 1.0)
             scaler_G.step(opt_G)
             scaler_G.update()
 
@@ -134,8 +141,9 @@ def main():
                 loss_real = criterion_gan(discriminator(hr), valid)
                 loss_fake = criterion_gan(discriminator(gen_hr.detach()), fake)
                 loss_D = 0.5 * (loss_real + loss_fake)
-
+               
             scaler_D.scale(loss_D).backward()
+            torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
             scaler_D.step(opt_D)
             scaler_D.update()
 
