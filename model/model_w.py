@@ -14,13 +14,13 @@ class WaveletTransform(nn.Module):
         edge_maps = []
         for b in range(x.size(0)):
             batch_edges = []
-            for c in range(x.size(1)):
+            for c in range(x.size(1)): #for each channel (single channel in our case)
                 #coeffs2 = pywt.dwt2(x[b, c].cpu().numpy(), self.wave)
                 coeffs2 = pywt.dwt2(x[b, c].detach().cpu().numpy(), self.wave)
                 LL, (LH, HL, HH) = coeffs2
-                edge = torch.tensor((LH + HL + HH), dtype=torch.float32)
-                batch_edges.append(edge.unsqueeze(0))
-            edge_maps.append(torch.cat(batch_edges, dim=0).unsqueeze(0))
+                edge = torch.tensor((LH + HL + HH), dtype=torch.float32) #edgemap creation
+                batch_edges.append(edge.unsqueeze(0))#add batch dimension each edgemap
+            edge_maps.append(torch.cat(batch_edges, dim=0).unsqueeze(0)) #return batch of edge maps
         return torch.cat(edge_maps, dim=0).to(x.device)
 
 class ResidualBlock(nn.Module):
@@ -29,39 +29,39 @@ class ResidualBlock(nn.Module):
         self.block = nn.Sequential(
             nn.Conv2d(channels, channels, 3, 1, 1),
             nn.BatchNorm2d(channels),
-            nn.PReLU(),
+            nn.PReLU(),#Resblock feature extraction layer 1
             nn.Conv2d(channels, channels, 3, 1, 1),
-            nn.BatchNorm2d(channels)
+            nn.BatchNorm2d(channels)# Resblock feature extraction layer 2
         )
-        self.wavelet = WaveletTransform()
+        self.wavelet = WaveletTransform()#Wavelet transform instance
 
     def forward(self, x):
-        edge = self.wavelet(x)
+        edge = self.wavelet(x) #Fetch wavelet edge map
         # Resize edge map to match feature map dimensions
-        edge = F.interpolate(edge, size=x.shape[2:], mode='bilinear', align_corners=False)
+        edge = F.interpolate(edge, size=x.shape[2:], mode='bilinear', align_corners=False) #Resize to match MID CONV LAYER size
         return x + self.block(x) + edge  # add wavelet residual
 
 class Generator(nn.Module):
     def __init__(self, in_channels=1, num_res_blocks=16):
         super().__init__()
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, 64, 9, padding=4),
+            nn.Conv2d(in_channels, 64, 9, padding=4), #9x9 conv initial convlayer
             nn.PReLU()
         )
-        self.res_blocks = nn.Sequential(*[ResidualBlock(64) for _ in range(num_res_blocks)])
+        self.res_blocks = nn.Sequential(*[ResidualBlock(64) for _ in range(num_res_blocks)]) #16 residual blocks 
         self.mid_conv = nn.Sequential(
             nn.Conv2d(64, 64, 3, 1, 1),
             nn.BatchNorm2d(64)
-        )
+        ) #mid conv layer after residual blocks
         self.upsample = nn.Sequential(
             nn.Conv2d(64, 256, 3, 1, 1),
             nn.PixelShuffle(2),
-            nn.PReLU(),
+            nn.PReLU(), #upsampling x2 256->64
             nn.Conv2d(64, 256, 3, 1, 1),
             nn.PixelShuffle(2),
-            nn.PReLU()
+            nn.PReLU() #upsampling x2 512->64
         )
-        self.output = nn.Conv2d(64, in_channels, 9, padding=4)
+        self.output = nn.Conv2d(64, in_channels, 9, padding=4) #final output layer 512*512*1 (final SR image)
 
     def forward(self, x):
         x1 = self.conv1(x)
