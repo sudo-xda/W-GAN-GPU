@@ -13,7 +13,8 @@ from torchvision.utils import save_image
 import torch._dynamo
 torch._dynamo.config.suppress_errors = True
 
-from model.srgan_model import Generator, Discriminator
+#from model.new_w_model import Generator, Discriminator
+from model.SRCNN_model import Generator, Discriminator
 
 
 class SRDataset(torch.utils.data.Dataset):
@@ -72,9 +73,9 @@ def save_sample_images(epoch, lr_batch, hr_batch, sr_batch, psnr_metric, output_
 
 
 def main():
-    run_name = "srgan_run-psnr-CT_100epoch_new_w3_srgan_model"
+    run_name = "srgan_run-psnr-MRI_100epoch_new_w3_srgan_model_HR_LR_SR"
     device = torch.device("cuda")
-    data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset\\CT-SMALL-512"
+    data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset\\MRI_kaggle_512"
 
     run_dir = os.path.join("runs", run_name)
     os.makedirs(run_dir, exist_ok=True)
