@@ -15,7 +15,8 @@ torch._dynamo.config.suppress_errors = True
 
 #from model.model_w import Generator, Discriminator
 #from model.new_w_model import Generator, Discriminator
-from model.srgan_model import Generator, Discriminator
+#from model.srgan_model import Generator, Discriminator
+from model.SRCNN_model import SRCNN
 
 
 class SRDataset(torch.utils.data.Dataset):
@@ -56,9 +57,9 @@ class VGGFeatureExtractor(nn.Module):
 
 def main():
     
-    run_name = "srgan_run-psnr-CT_100epoch_new w3_srgan model"   
+    run_name = "srgan_run-psnr-MRI_100epoch_SRCNN"   
     device = torch.device("cuda")
-    data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset\\CT-SMALL-512"
+    data_path = "C:\\Users\\SOEE\\Documents\\GitHub\\W-GAN-GPU\\dataset\\MRI_kaggle_512"
 
     # Folders
     run_dir = os.path.join("runs", run_name)
@@ -86,7 +87,7 @@ def main():
     criterion_content = nn.MSELoss()
     #criterion_content = nn.L1Loss()
 
-    opt_G = optim.Adam(generator.parameters(), lr=1e-4)
+    opt_G = optim.Adam(generator.parameters(), lr=1e-3)
     opt_D = optim.Adam(discriminator.parameters(), lr=1e-5)
 
     # Updated AMP scaler syntax
